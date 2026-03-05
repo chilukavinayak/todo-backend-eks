@@ -9,6 +9,12 @@ pipeline {
         MAVEN_OPTS = '-Xmx1024m'
     }
     
+    triggers {
+        // Trigger pipeline on push to GitHub/GitLab webhook
+        // Requires webhook to be configured in GitHub/GitLab repository settings
+        githubPush()
+    }
+    
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 30, unit: 'MINUTES')
@@ -69,16 +75,25 @@ pipeline {
             }
             steps {
                 sh """
+                    # Configure kubectl to connect to EKS cluster
                     aws eks update-kubeconfig --region ${AWS_REGION} --name tresvita-todo-app-dev
                     
+                    # Deploy using Helm chart
+                    # --install: Install if doesn't exist, upgrade if exists
+                    # --namespace: Target namespace for deployment
+                    # --values: Use development-specific configuration
+                    # --set image.repository: Override ECR repository URL
+                    # --set image.tag: Use build number as unique image tag
+                    # --wait: Wait for deployment to complete
                     helm upgrade --install tresvita-todo-backend ../infra-eks-terraform/helm_charts/todo-backend \
                         --namespace backend \
+                        --values ../infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
                         --set image.repository=${ECR_REPO} \
                         --set image.tag=${IMAGE_TAG} \
-                        --set replicaCount=2 \
                         --wait \
                         --timeout 5m
                     
+                    # Verify deployment succeeded
                     kubectl rollout status deployment/tresvita-todo-backend -n backend --timeout=300s
                 """
             }
@@ -89,19 +104,25 @@ pipeline {
                 branch 'main'
             }
             steps {
+                # Manual approval required before production deployment
                 input message: 'Deploy to Production?', ok: 'Deploy'
                 
                 sh """
+                    # Configure kubectl to connect to EKS cluster
                     aws eks update-kubeconfig --region ${AWS_REGION} --name tresvita-todo-app-dev
                     
+                    # Deploy using Helm chart with production values
+                    # Uses values-prod.yaml for production-specific configuration
+                    # Higher replica count and resource limits
                     helm upgrade --install tresvita-todo-backend ../infra-eks-terraform/helm_charts/todo-backend \
                         --namespace backend \
+                        --values ../infra-eks-terraform/helm_charts/todo-backend/values-prod.yaml \
                         --set image.repository=${ECR_REPO} \
                         --set image.tag=${IMAGE_TAG} \
-                        --set replicaCount=3 \
                         --wait \
                         --timeout 10m
                     
+                    # Verify deployment succeeded
                     kubectl rollout status deployment/tresvita-todo-backend -n backend --timeout=600s
                 """
             }
