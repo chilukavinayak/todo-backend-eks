@@ -25,10 +25,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                script {
-                    env.GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-                    echo "Building branch: ${env.GIT_BRANCH}"
-                }
             }
         }
         
@@ -60,9 +56,6 @@ pipeline {
         }
         
         stage('Deploy to Dev') {
-            when {
-                branch 'master'
-            }
             steps {
                 deployToDev()
             }
@@ -108,16 +101,12 @@ def deployToDev() {
     echo "║           BACKEND DEPLOYED TO DEV                            ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
-    echo "🔗 BACKEND API URL:"
+    echo "🔗 BACKEND API:"
     echo "   http://tresvita-todo-backend.backend.svc.cluster.local:8080/api"
     echo ""
-    echo "📋 TEST COMMANDS:"
+    echo "📋 TEST:"
     echo "   kubectl port-forward svc/tresvita-todo-backend 8080:8080 -n backend"
     echo "   curl http://localhost:8080/api/actuator/health"
-    echo ""
-    echo "📊 CHECK STATUS:"
-    echo "   kubectl get pods -n backend"
-    echo "   kubectl logs -n backend -l app=tresvita-todo-backend"
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
 }
