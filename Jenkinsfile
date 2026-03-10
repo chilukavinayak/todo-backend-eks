@@ -13,7 +13,7 @@ pipeline {
     
     options {
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 45, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
     
@@ -92,7 +92,6 @@ def deployToDev() {
         echo "CLEANING UP EXISTING RESOURCES"
         echo "========================================"
         
-        # Delete existing resources that might conflict
         kubectl delete deployment tresvita-todo-backend -n backend 2>/dev/null || true
         kubectl delete serviceaccount backend-sa -n backend 2>/dev/null || true
         kubectl delete service tresvita-todo-backend -n backend 2>/dev/null || true
@@ -110,7 +109,13 @@ def deployToDev() {
           --values /tmp/infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
           --set image.repository=${ECR_REPO}/${IMAGE_NAME} \
           --set image.tag=dev \
-          --wait --timeout 5m
+          --timeout 10m \
+          --atomic \
+          --cleanup-on-fail
+        
+        echo ""
+        echo "Waiting for deployment..."
+        sleep 10
         
         echo ""
         echo "Backend Status:"
