@@ -61,10 +61,7 @@ pipeline {
         
         stage('Deploy to Dev') {
             when {
-                anyOf {
-                    branch 'develop'
-                    branch 'master'
-                }
+                branch 'master'
             }
             steps {
                 deployToDev()
@@ -74,10 +71,10 @@ pipeline {
     
     post {
         success {
-            echo "Backend Build ${BUILD_NUMBER} successful!"
+            echo "SUCCESS: Build ${BUILD_NUMBER} completed!"
         }
         failure {
-            echo "Backend Build ${BUILD_NUMBER} failed!"
+            echo "FAILED: Build ${BUILD_NUMBER}"
         }
         always {
             cleanWs()
@@ -89,7 +86,10 @@ def deployToDev() {
     sh """
         aws eks update-kubeconfig --region ${AWS_REGION} --name tresvita-todo-app-dev
         
-        echo "Deploying Backend to DEV environment..."
+        echo "========================================"
+        echo "DEPLOYING BACKEND TO DEV"
+        echo "========================================"
+        
         helm upgrade --install ${APP_NAME} ../infra-eks-terraform/helm_charts/todo-backend \
           --namespace backend \
           --values ../infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
@@ -98,15 +98,26 @@ def deployToDev() {
           --wait --timeout 5m
         
         echo ""
-        echo "Backend Deployment Status:"
+        echo "Backend Status:"
         kubectl get pods -n backend
         kubectl get svc -n backend
     """
     
     echo ""
-    echo "========================================="
-    echo "BACKEND DEPLOYED TO DEV"
-    echo "========================================="
-    echo "Backend internal URL: http://${APP_NAME}.backend.svc.cluster.local:8080/api"
-    echo "========================================="
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║           BACKEND DEPLOYED TO DEV                            ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "🔗 BACKEND API URL:"
+    echo "   http://tresvita-todo-backend.backend.svc.cluster.local:8080/api"
+    echo ""
+    echo "📋 TEST COMMANDS:"
+    echo "   kubectl port-forward svc/tresvita-todo-backend 8080:8080 -n backend"
+    echo "   curl http://localhost:8080/api/actuator/health"
+    echo ""
+    echo "📊 CHECK STATUS:"
+    echo "   kubectl get pods -n backend"
+    echo "   kubectl logs -n backend -l app=tresvita-todo-backend"
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
 }
