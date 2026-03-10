@@ -13,7 +13,7 @@ pipeline {
     
     options {
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        timeout(time: 45, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
     
@@ -89,38 +89,26 @@ def deployToDev() {
         aws eks update-kubeconfig --region ${AWS_REGION} --name tresvita-todo-app-dev
         
         echo "========================================"
-        echo "CLEANING UP EXISTING RESOURCES"
-        echo "========================================"
-        
-        kubectl delete deployment tresvita-todo-backend -n backend 2>/dev/null || true
-        kubectl delete serviceaccount backend-sa -n backend 2>/dev/null || true
-        kubectl delete service tresvita-todo-backend -n backend 2>/dev/null || true
-        kubectl delete configmap tresvita-todo-backend -n backend 2>/dev/null || true
-        
-        sleep 5
-        
-        echo ""
-        echo "========================================"
         echo "DEPLOYING BACKEND TO DEV"
         echo "========================================"
         
+        # Uninstall first to ensure clean state
+        helm uninstall ${APP_NAME} -n backend 2>/dev/null || true
+        sleep 5
+        
+        # Install with debug output
         helm upgrade --install ${APP_NAME} /tmp/infra-eks-terraform/helm_charts/todo-backend \
           --namespace backend \
           --values /tmp/infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
           --set image.repository=${ECR_REPO}/${IMAGE_NAME} \
           --set image.tag=dev \
-          --timeout 10m \
-          --atomic \
-          --cleanup-on-fail
+          --timeout 3m \
+          --debug
         
         echo ""
-        echo "Waiting for deployment..."
-        sleep 10
-        
-        echo ""
-        echo "Backend Status:"
+        echo "Checking pod status..."
         kubectl get pods -n backend
-        kubectl get svc -n backend
+        kubectl describe pods -n backend 2>/dev/null || true
     """
     
     echo ""
@@ -128,7 +116,5 @@ def deployToDev() {
     echo "BACKEND DEPLOYED TO DEV"
     echo "========================================"
     echo "API URL: http://tresvita-todo-backend.backend.svc.cluster.local:8080/api"
-    echo ""
-    echo "Test: kubectl port-forward svc/tresvita-todo-backend 8080:8080 -n backend"
     echo "========================================"
 }
