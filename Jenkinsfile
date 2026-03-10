@@ -28,6 +28,15 @@ pipeline {
             }
         }
         
+        stage('Checkout Infra Repo') {
+            steps {
+                sh '''
+                    git clone https://github.com/chilukavinayak/infra-eks-terraform.git /tmp/infra-eks-terraform
+                    ls -la /tmp/infra-eks-terraform/helm_charts/todo-backend/
+                '''
+            }
+        }
+        
         stage('Build and Test') {
             steps {
                 sh './mvnw clean package -DskipTests'
@@ -83,9 +92,9 @@ def deployToDev() {
         echo "DEPLOYING BACKEND TO DEV"
         echo "========================================"
         
-        helm upgrade --install ${APP_NAME} ../infra-eks-terraform/helm_charts/todo-backend \
+        helm upgrade --install ${APP_NAME} /tmp/infra-eks-terraform/helm_charts/todo-backend \
           --namespace backend \
-          --values ../infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
+          --values /tmp/infra-eks-terraform/helm_charts/todo-backend/values-dev.yaml \
           --set image.repository=${ECR_REPO}/${IMAGE_NAME} \
           --set image.tag=dev \
           --wait --timeout 5m
@@ -97,16 +106,11 @@ def deployToDev() {
     """
     
     echo ""
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║           BACKEND DEPLOYED TO DEV                            ║"
-    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo "========================================"
+    echo "BACKEND DEPLOYED TO DEV"
+    echo "========================================"
+    echo "API URL: http://tresvita-todo-backend.backend.svc.cluster.local:8080/api"
     echo ""
-    echo "🔗 BACKEND API:"
-    echo "   http://tresvita-todo-backend.backend.svc.cluster.local:8080/api"
-    echo ""
-    echo "📋 TEST:"
-    echo "   kubectl port-forward svc/tresvita-todo-backend 8080:8080 -n backend"
-    echo "   curl http://localhost:8080/api/actuator/health"
-    echo ""
-    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "Test: kubectl port-forward svc/tresvita-todo-backend 8080:8080 -n backend"
+    echo "========================================"
 }
